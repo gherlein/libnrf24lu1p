@@ -14,7 +14,9 @@ aim compatability with include:
 * Home Automation and IoT network sensor networks
 
 The existing libcrazyradio is awesome, but I desired to extend it to
-support many modes of operation in addition to the Bitcraze model. 
+support many modes of operation in addition to the Bitcraze
+model. There is also a strong desire to support other NRF24LU1+
+devices in several modes of operation.
 
 ## Hardware ##
 
