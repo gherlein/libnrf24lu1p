@@ -2,7 +2,7 @@
 
 This library allows USB-driven use of the Nordic Semi NRF24LU1+
 chipset from linux user space.  This work is heavily derived from the
-excellent work done by Ron Pedde on [libcrazyradio](https://github.com/rpedde/libcrazyradio - see CREDITS).
+excellent work done by Ron Pedde's [libcrazyradio](https://github.com/rpedde/libcrazyradio).
 
 This library is intended to continue to support the Crazyflie2 as well
 as to support other modes of radio operation.  Other projects that we
@@ -90,6 +90,9 @@ Bitcraze deserves huge kudos for releasing the CrazyRadio PA.  Ron
 Pedde deserves all the credit for creating libcrazyradio from which
 this is derived.  
 
+## License ##
+
+This software retains the GPLv3 license from libcrazyradio.
 
 
 
