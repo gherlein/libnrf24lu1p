@@ -45,7 +45,7 @@ If you need to clean up and recompile, you can return to the vanilla
 github repo state by 
 
 ````bash
-./wipe-clean
+./wipe-clean.sh
 ````
 
 ## Test Programs ##
