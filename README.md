@@ -2,16 +2,15 @@
 
 This library allows USB-driven use of the Nordic Semi NRF24LU1+
 chipset from linux user space.  This work is heavily derived from the
-excellent work done by Ron Pedde on libcrazyradio
-(https://github.com/rpedde/libcrazyradio - see CREDITS).
+excellent work done by Ron Pedde on [libcrazyradio](https://github.com/rpedde/libcrazyradio - see CREDITS).
 
 This library is intended to continue to support the Crazyflie2 as well
 as to support other modes of radio operation.  Other projects that we
 aim compatability with include:
 
-* [nRF24 Library] (https://github.com/nRF24)
-* [NRF24 Sniffer] (https://github.com/Yveaux/NRF24_Sniffer)
-* [Cheerson CX-10A Quadcopter] (https://www.amazon.com/dp/B00WQX7WMI/_encoding=UTF8?coliid=I11LFTLXRCE300&colid=2WORUWOFT4693)
+* [nRF24 Library](https://github.com/nRF24)
+* [NRF24 Sniffer](https://github.com/Yveaux/NRF24_Sniffer)
+* [Cheerson CX-10A Quadcopter](https://www.amazon.com/dp/B00WQX7WMI/_encoding=UTF8?coliid=I11LFTLXRCE300&colid=2WORUWOFT4693)
 * Home Automation and IoT network sensor networks
 
 The existing libcrazyradio is awesome, but I desired to extend it to
