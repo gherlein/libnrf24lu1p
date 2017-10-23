@@ -51,16 +51,21 @@ github repo state by
 ## Test Programs ##
 
 There are two test programs:  rx-test and tx-test.  They should be
-built automatically with a make but not installed. On the receiver side:
+built automatically with a make but not installed. 
+
+NOTE:  additional test programs will be added soon, and these should
+be considered VOLATILE and SUBJECT TO LARGE CHANGES.
+
+On the receiver side:
 
 ````bash
-src/tx-test/tx-test 
+./src/tx-test/tx-test 
 ````
 
 On the transmit side:
 
 ````bash
-src/rx-test/rx-test 
+./src/rx-test/rx-test 
 rx-test: version 0.1
 Found device: Crazyradio PA USB Dongle
 Serial: 45BCC85B98
@@ -77,13 +82,13 @@ If you desire to run both devices from one linux system, you can
 append the radio number on the command line:
 
 ````bash
-src/tx-test/tx-test 0
+./src/tx-test/tx-test 0
 ````
 
 and 
 
 ````bash
-src/rx-test/rx-test 1 
+./src/rx-test/rx-test 1 
 ````
 
 ## Credits ##
