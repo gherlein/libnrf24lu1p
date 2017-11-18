@@ -32,7 +32,7 @@ Quadcopter](https://www.bitcraze.io/crazyflie-2/).
 
 ## Matching Firmware ##
 
-You should be able to use this with stick CrazyRadio PA firmware.
+You should be able to use this with stock CrazyRadio PA firmware.
 However, I have been adding some commands to that firmware and it's
 possible you may need to flash your hardware with newer firmware.
 Please see [my fork of the CrazyRadio firmware](https://github.com/gherlein/crazyradio-firmware).
