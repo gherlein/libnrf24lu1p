@@ -72,6 +72,7 @@ static int last_error = 0;
 static int last_error_type = 0;
 static void (*log_method)(int, char*, va_list) = NULL;
 static int config_timeout = 1000;
+static int device_count=0;
 
 /* Forwards */
 static void nrf24radio_log(int level, char *format, ...);
@@ -79,18 +80,16 @@ static void nrf24radio_log(int level, char *format, ...);
 
 int nrf24radio_init(void) {
     int rc;
-
     rc = libusb_init(&context);
-    /* libusb_set_debug(context, LIBUSB_LOG_LEVEL_DEBUG); */
+    CRDEBUG("initialized nrf24radio");
 
-    CRDEBUG("initialized libcrazyradio");
-
-    return rc;
+    device_count=nrf24radio_scan();
+    return device_count;
 }
 
 void nrf24radio_set_log_method(void(*fp)(int, char*, va_list)) {
     log_method = fp;
-    CRDEBUG("set libcrazyradio log function");
+    CRDEBUG("set libnrf24radio log function");
 }
 
 void nrf24radio_set_config_timeout(int timeout) {
@@ -105,7 +104,6 @@ const char *nrf24radio_get_errorstr(void) {
               (last_error < CR_ERR_LAST))  {
         return errtext[last_error];
     }
-
     return "Unknown";
 }
 
@@ -157,112 +155,175 @@ static void nrf24radio_exit(char *format, ...) {
     exit(EXIT_FAILURE);
 }
 
-nrf24radio_device_t *nrf24radio_get(int device_id) {
-    nrf24radio_device_t *prd;
-    libusb_device **list = NULL;
-    libusb_device_handle *handle;
-    int count;
-    int rc;
-    int res;
-    int devfound = 0;
+int nrf24radio_scan(void)
+{
+  nrf24radio_device_t *prd;
+  libusb_device **list = NULL;
+  libusb_device_handle *handle;
+  int count;
+  int rc;
+  int res;
+  int devfound = 0;
 
-    CRDEBUG("Walking usb device list");
+  CRDEBUG("Walking usb device list");
 
-    count = libusb_get_device_list(context, &list);
-    if(count > 0) {
-        int devidx = 0;
-        for(int idx = 0; idx < count; idx++) {
-            libusb_device *device = list[idx];
-            struct libusb_device_descriptor desc;
+  count = libusb_get_device_list(context, &list);
+  if(count > 0)
+  {
+    int devidx = 0;
+    for(int idx = 0; idx < count; idx++)
+    {
+      libusb_device *device = list[idx];
+      struct libusb_device_descriptor desc;
 
-            rc = libusb_get_device_descriptor(device, &desc);
-            if(rc) {
-                set_usb_error(rc);
-                return NULL;
-            }
+      rc = libusb_get_device_descriptor(device, &desc);
+      if(rc) {
+        set_usb_error(rc);
+        return 0;
+      }
 
-            CRDEBUG("Found device %04x:%04x", desc.idVendor, desc.idProduct);
+      CRDEBUG("Found device %04x:%04x", desc.idVendor, desc.idProduct);
 
-            if((desc.idVendor == CRADIO_VID) && \
-               (desc.idProduct == CRADIO_PID)) {
-                CRDEBUG("Found crazyradio device");
-                devfound = 1;
+      if((desc.idVendor == CRADIO_VID) && \
+         (desc.idProduct == CRADIO_PID))
+      {
+        CRDEBUG("Found crazyradio device");
+        devfound++;
+        prd = (nrf24radio_device_t *)malloc(sizeof(nrf24radio_device_t));
+        if(!prd) nrf24radio_exit("malloc error");
+        memset(prd, 0, sizeof(nrf24radio_device_t));
 
-                if((device_id == devidx) || (device_id == -1)) {
-                    CRDEBUG("Claiming this USB device (%d)",devidx);
+        prd->firmware = 10.0 * (desc.bcdDevice >> 12);
+        prd->firmware += (desc.bcdDevice >> 8) & 0xF;
+        prd->firmware += ((desc.bcdDevice & 0xFF) >> 4) / 10.0;
+        prd->firmware += (desc.bcdDevice & 0x0F) / 100.0;
 
-                    prd = (nrf24radio_device_t *)malloc(sizeof(nrf24radio_device_t));
-                    if(!prd)
-                        nrf24radio_exit("malloc error");
-                    memset(prd, 0, sizeof(nrf24radio_device_t));
+        prd->serial = (char *)malloc(256);
+        prd->model = (char *)malloc(256);
 
-                    prd->firmware = 10.0 * (desc.bcdDevice >> 12);
-                    prd->firmware += (desc.bcdDevice >> 8) & 0xF;
-                    prd->firmware += ((desc.bcdDevice & 0xFF) >> 4) / 10.0;
-                    prd->firmware += (desc.bcdDevice & 0x0F) / 100.0;
+        if((!prd->serial) || (!prd->model))
+          nrf24radio_exit("malloc error");
 
-                    prd->serial = (char *)malloc(256);
-                    prd->model = (char *)malloc(256);
-
-                    if((!prd->serial) || (!prd->model))
-                        nrf24radio_exit("malloc error");
-
-                    memset(prd->serial, 0, 256);
-                    memset(prd->model, 0, 256);
-
-                    CRDEBUG("Opening device");
-                    rc = libusb_open(device,
-                                     (libusb_device_handle**)&prd->pusb_handle);
-
-                    handle = (libusb_device_handle*)prd->pusb_handle;
-
-                    /* libusb_free_device_list(list, 1); */
-
-                    if(rc != 0) {
-                        set_usb_error(rc);
-                        nrf24radio_close(prd);
-                        libusb_free_device_list(list, 1);
-                        return NULL;
-                    }
-
-                    CRDEBUG("Claiming interface");
-                    rc = libusb_claim_interface(handle, 0);
-
-                    if(!rc) {
-                        CRDEBUG("Getting serial descriptor (%d)",
-                                desc.iSerialNumber);
-                        res = libusb_get_string_descriptor_ascii(
-                            handle, desc.iSerialNumber, prd->serial, 256);
-                        if(res < 0)
-                            rc = res;
-                    }
-
-                    if(!rc) {
-                        CRDEBUG("Getting product descriptor (%d)",
-                            desc.iProduct);
-                        res = libusb_get_string_descriptor_ascii(
-                            handle, desc.iProduct, prd->model, 256);
-                        if(res < 0)
-                            rc = res;
-                    }
-
-                    if(rc != 0) {
-                        set_usb_error(rc);
-                        nrf24radio_close(prd);
-                        libusb_free_device_list(list, 1);
-                        return NULL;
-                    }
-
-                    libusb_free_device_list(list, 1);
-                    return prd;
-                }
-                devidx++;
-            }
-        }
+        memset(prd->serial, 0, 256);
+        memset(prd->model, 0, 256);
+      }
     }
-    libusb_free_device_list(list, 1);
+  } // if(count > 0) */
+  
+  libusb_free_device_list(list, 1);
+  if(devfound==0)
     set_nrf24radio_error(devfound ? CR_ERR_NOTENOUGH : CR_ERR_NODEVICE);
-    return NULL;
+  return devfound; 
+}
+
+
+nrf24radio_device_t *nrf24radio_get(int device_id) {
+  nrf24radio_device_t *prd;
+  libusb_device **list = NULL;
+  libusb_device_handle *handle;
+  int count;
+  int rc;
+  int res;
+  int devfound = 0;
+
+  CRDEBUG("Walking usb device list");
+
+  count = libusb_get_device_list(context, &list);
+  if(count > 0) {
+    int devidx = 0;
+    for(int idx = 0; idx < count; idx++) {
+      libusb_device *device = list[idx];
+      struct libusb_device_descriptor desc;
+
+      rc = libusb_get_device_descriptor(device, &desc);
+      if(rc) {
+        set_usb_error(rc);
+        return NULL;
+      }
+
+      CRDEBUG("Found device %04x:%04x", desc.idVendor, desc.idProduct);
+
+      if((desc.idVendor == CRADIO_VID) && \
+         (desc.idProduct == CRADIO_PID))
+      {
+        CRDEBUG("Found crazyradio device");
+        devfound = 1;
+
+        if((device_id == devidx) || (device_id == -1)) {
+          CRDEBUG("Claiming this USB device (%d)",devidx);
+
+          prd = (nrf24radio_device_t *)malloc(sizeof(nrf24radio_device_t));
+          if(!prd)
+            nrf24radio_exit("malloc error");
+          memset(prd, 0, sizeof(nrf24radio_device_t));
+
+          prd->firmware = 10.0 * (desc.bcdDevice >> 12);
+          prd->firmware += (desc.bcdDevice >> 8) & 0xF;
+          prd->firmware += ((desc.bcdDevice & 0xFF) >> 4) / 10.0;
+          prd->firmware += (desc.bcdDevice & 0x0F) / 100.0;
+
+          prd->serial = (char *)malloc(256);
+          prd->model = (char *)malloc(256);
+
+          if((!prd->serial) || (!prd->model))
+            nrf24radio_exit("malloc error");
+
+          memset(prd->serial, 0, 256);
+          memset(prd->model, 0, 256);
+
+          CRDEBUG("Opening device");
+          rc = libusb_open(device,
+                           (libusb_device_handle**)&prd->pusb_handle);
+
+          handle = (libusb_device_handle*)prd->pusb_handle;
+
+          /* libusb_free_device_list(list, 1); */
+
+          if(rc != 0) {
+            set_usb_error(rc);
+            nrf24radio_close(prd);
+            libusb_free_device_list(list, 1);
+            return NULL;
+          }
+
+          CRDEBUG("Claiming interface");
+          rc = libusb_claim_interface(handle, 0);
+
+          if(!rc) {
+            CRDEBUG("Getting serial descriptor (%d)",
+                    desc.iSerialNumber);
+            res = libusb_get_string_descriptor_ascii(
+              handle, desc.iSerialNumber, prd->serial, 256);
+            if(res < 0)
+              rc = res;
+          }
+
+          if(!rc) {
+            CRDEBUG("Getting product descriptor (%d)",
+                    desc.iProduct);
+            res = libusb_get_string_descriptor_ascii(
+              handle, desc.iProduct, prd->model, 256);
+            if(res < 0)
+              rc = res;
+          }
+
+          if(rc != 0) {
+            set_usb_error(rc);
+            nrf24radio_close(prd);
+            libusb_free_device_list(list, 1);
+            return NULL;
+          }
+
+          libusb_free_device_list(list, 1);
+          return prd;
+        }
+        devidx++;
+      }
+    }
+  }
+  libusb_free_device_list(list, 1);
+  set_nrf24radio_error(devfound ? CR_ERR_NOTENOUGH : CR_ERR_NODEVICE);
+  return NULL;
 }
 
 int nrf24radio_send_config(nrf24radio_device_t *prd, uint8_t request,
@@ -466,4 +527,26 @@ int nrf24radio_close(nrf24radio_device_t *prd) {
     }
 
     return 0;
+}
+
+// added new commands to support fine-grained control_transfer
+// not required for CrazyFlie operation!
+int nrf24radio_set_shockburst(nrf24radio_device_t *prd, uint16_t enable_status) {
+    CRDEBUG("%sabling shockburst", enable_status ? "en" : "dis");
+    return nrf24radio_send_config(prd, CONF_SHOCKBURST, enable_status, 0, NULL, 0);
+}
+
+int nrf24radio_set_crc(nrf24radio_device_t *prd, uint16_t enable_status) {
+    CRDEBUG("%sabling crc", enable_status ? "en" : "dis");
+    return nrf24radio_send_config(prd, CONF_CRC, enable_status, 0, NULL, 0);
+}
+
+int nrf24radio_set_crc_bytes(nrf24radio_device_t *prd, uint16_t bytes) {
+  CRDEBUG("Setting crc bytes to %02x", bytes);
+  if(bytes > 1)
+    bytes=2;
+  if(bytes < 2)
+    bytes=1;
+  
+  return nrf24radio_send_config(prd, CONF_CRC_LEN, 1, 0, NULL, 0);
 }

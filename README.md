@@ -30,6 +30,14 @@ highly adaptable for many uses.  The CrazyRadio
 a specific profile that supports connection to the [Crazyflie2
 Quadcopter](https://www.bitcraze.io/crazyflie-2/).
 
+## Matching Firmware ##
+
+You should be able to use this with stick CrazyRadio PA firmware.
+However, I have been adding some commands to that firmware and it's
+possible you may need to flash your hardware with newer firmware.
+Please see [my fork of the CrazyRadio firmware](https://github.com/gherlein/crazyradio-firmware).
+
+
 ## Building ##
 
 To build the library you need the standard GNU autotools/autoconf

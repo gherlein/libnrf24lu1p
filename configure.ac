@@ -35,5 +35,11 @@ LT_INIT
 
 
 
-AC_OUTPUT(Makefile src/Makefile src/lib/Makefile src/tx-test/Makefile src/rx-test/Makefile)
+AC_OUTPUT(Makefile 
+          src/Makefile 
+          src/lib/Makefile 
+          src/tx-test/Makefile
+          src/rx-test/Makefile
+          src/sniff-test/Makefile)
+
 

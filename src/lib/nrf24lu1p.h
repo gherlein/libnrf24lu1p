@@ -47,6 +47,9 @@
 #define CONF_START_SCAN_CHANNELS 0x21
 #define CONF_GET_SCAN_CHANNELS   0x21
 #define CONF_SET_RADIO_MODE      0x22
+#define CONF_SHOCKBURST          0x30
+#define CONF_CRC                 0x31
+#define CONF_CRC_LEN             0x32
 
 #define AUTO_ACK_DISABLED        0x00
 #define AUTO_ACK_ENABLED         0x01
@@ -63,6 +66,8 @@
 #define MODE_PTX                 0x00
 #define MODE_PRX                 0x02
 
+#define MAX_DEVICES              4
+
 typedef struct nrf24radio_device_t {
     float firmware;
     char *serial;
@@ -70,9 +75,13 @@ typedef struct nrf24radio_device_t {
     void *pusb_handle;
 } nrf24radio_device_t;
 
+
+
 typedef uint8_t *nrf24radio_address;
 
 extern int nrf24radio_init(void);
+extern nrf24radio_device_t* nrf24radio_list(void);
+extern int nrf24radio_scan(void);
 extern nrf24radio_device_t *nrf24radio_get(int);
 extern int nrf24radio_close(nrf24radio_device_t *);
 
@@ -98,6 +107,11 @@ extern int nrf24radio_read_packet(nrf24radio_device_t *prd,
 extern int nrf24radio_write_packet(nrf24radio_device_t *prd,
                                unsigned char *buffer,
                                int len, int timeout);
+
+
+int nrf24radio_set_shockburst(nrf24radio_device_t *prd, uint16_t enable_status);
+int nrf24radio_set_crc(nrf24radio_device_t *prd, uint16_t enable_status);
+int nrf24radio_set_crc_bytes(nrf24radio_device_t *prd, uint16_t bytes);
 
 
 #endif /* _NRF24LU1P_H_ */
