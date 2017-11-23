@@ -469,9 +469,9 @@ int nrf24radio_set_ard_bytes(nrf24radio_device_t *prd, uint16_t bytes) {
  * receive mode
  */
 int nrf24radio_set_mode(nrf24radio_device_t *prd, uint16_t mode) {
+//    if((mode != MODE_PTX) && (mode != MODE_PRX))
     if((mode != MODE_PTX) && (mode != MODE_PRX))
         return set_nrf24radio_error(CR_ERR_BADMODE);
-
     CRDEBUG("Setting mode to %s", mode == MODE_PTX ? "PTX" : "PRX");
     return nrf24radio_send_config(prd, CONF_SET_RADIO_MODE, mode, 0, NULL, 0);
 }
