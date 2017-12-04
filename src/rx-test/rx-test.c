@@ -21,6 +21,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
+#include <string.h>
 
 #include <nrf24lu1p.h>
 
@@ -46,9 +47,12 @@ int main(int argc, char *argv[]) {
     int res;
     int radio_id = -1;
     int count=0;
+    int lost=0;
+    char serialnum[12];
+    
     
     if(argc > 1) {
-        radio_id = atoi(argv[1]);
+      strcpy(serialnum,argv[1]);
     }
 
     fprintf(stderr, "rx-test: version %s\n", VERSION);
@@ -58,7 +62,7 @@ int main(int argc, char *argv[]) {
     printf("found %d devices\n",count);
 
     // set debug_level to 5 for lots of logs, to 0 for nothing
-    debug_level = 5;
+    debug_level = 0;
     nrf24radio_set_log_method(print_log_msg);
 
     if(count==0)
@@ -67,7 +71,27 @@ int main(int argc, char *argv[]) {
       exit(-1);
     }
 
-    if(count>1)
+    for(int x=0;x<count;x++)
+    {
+      dev = nrf24radio_get(x);
+      if(!dev) {
+        fprintf(stderr, "could not open device: %s - skipping\n", nrf24radio_get_errorstr());
+        continue;
+      }
+      printf("Found device: %s\n", dev->model);
+      printf("Serial: [%s] \n", dev->serial);
+      printf("Firmware Version: %g\n", dev->firmware);
+      int n=strcmp(serialnum,dev->serial);
+      if(n==0) {
+        radio_id=x;
+      }
+      nrf24radio_close(dev);
+      if(radio_id>=0) break;
+    }
+    printf("radio_id: %d\n",radio_id);
+    fflush(stdout);
+    
+    if(count>1 && radio_id<0)
     {
       printf("What number device to use? ");
       int c=getchar();
@@ -94,20 +118,26 @@ int main(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
     
-    printf("Found device: %s\n", dev->model);
-    printf("Serial: %s\n", dev->serial);
-    printf("Firmware Version: %g\n", dev->firmware);
+    printf("opened device [%s] in PRX mode\n",dev->serial);
     
     uint8_t addr[5]={0x01,0x01,0x01,0x01,0x01};
     uint8_t *address=addr;
+
     
     if(nrf24radio_set_channel(dev, 100) ||
        nrf24radio_set_data_rate(dev, DATA_RATE_250KBPS) ||
-       nrf24radio_set_address(dev, address) ||
+//       nrf24radio_set_data_rate(dev, DATA_RATE_1MBPS) ||
+//       nrf24radio_set_data_rate(dev, DATA_RATE_2MBPS) ||
+       nrf24radio_set_power(dev,POWER_M18DBM) ||
+//       nrf24radio_set_power(dev,POWER_0DBM) ||
+//       nrf24radio_set_address(dev, address) ||
        nrf24radio_set_mode(dev, MODE_PRX)) {
       fprintf(stderr, "error setting up radio: %s\n", nrf24radio_get_errorstr());
       exit(EXIT_FAILURE);
     }
+
+    while(1);
+
     
     int val=0;
     while(1) {
@@ -119,8 +149,27 @@ int main(int argc, char *argv[]) {
 #ifdef PRINT_PAYLOAD
         printf("Payload:  [%s]\n",buffer);
 #endif        
+      
         int got=atoi(buffer);
-        if(got!=val+1) printf("expected %d but got %d\n",val,got);
+        printf("expected %d - got %d\n",val,got);
         val=got;
+        if(val!=got)
+        {
+          int l=got-val;
+          lost+=l;
+        }
+        printf("lost %d packets so far\n",lost);
+
+        memset(buffer,0x00,64);
+        sprintf(buffer,"got %d",val);
+        printf("writing [%s]\n",buffer);
+        
+        res=nrf24radio_write_packet(dev, buffer, strlen((char*)buffer) + 1, 1000);
+        printf("res: %d\n",res);
+        
+        if(res < 0) {
+            fprintf(stderr, "error writing: %s\n", nrf24radio_get_errorstr());
+            exit(EXIT_FAILURE);
+        }
     }
 }

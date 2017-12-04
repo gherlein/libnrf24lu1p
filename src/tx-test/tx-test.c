@@ -28,7 +28,7 @@
 
 #define VERSION "0.1"
 
-#define PACKET_XMIT_COUNT 10000
+#define PACKET_XMIT_COUNT 1000
 
 int debug_level;
 
@@ -49,9 +49,10 @@ int main(int argc, char *argv[])
   time_t start=0;
   time_t end=0;
   int bytes=0;
-  
+  char serialnum[12];  
+
   if(argc > 1) {
-    radio_id = atoi(argv[1]);
+    strcpy(serialnum,argv[1]);
   }
 
   fprintf(stderr, "tx-test: version %s\n", VERSION);
@@ -59,7 +60,6 @@ int main(int argc, char *argv[])
   count=nrf24radio_init();
 
   printf("found %d devices\n",count);
-
 
   // set debug_level to 5 for lots of logs, to 0 for nothing
   debug_level = 0;
@@ -71,7 +71,25 @@ int main(int argc, char *argv[])
     exit(-1);
   }
 
-  if(count>1)
+  for(int x=0;x<count;x++)
+  {
+    dev = nrf24radio_get(x);
+    if(!dev) {
+      fprintf(stderr, "could not open device: %s - skipping\n", nrf24radio_get_errorstr());
+      continue;
+    }
+    printf("Found device: %s\n", dev->model);
+    printf("Serial: [%s] \n", dev->serial);
+    printf("Firmware Version: %g\n", dev->firmware);
+    int n=strcmp(serialnum,dev->serial);
+    if(n==0) {
+      radio_id=x;
+    }
+    nrf24radio_close(dev);
+    if(radio_id>=0) break;
+  }
+  printf("radio_id: %d\n",radio_id);  
+  if(count>1 && radio_id<0)
   {
     printf("What number device to use? ");
     int c=getchar();
@@ -91,34 +109,27 @@ int main(int argc, char *argv[])
         break;
     }
   }
-                                    
-  debug_level = 5;
-  nrf24radio_set_log_method(print_log_msg);
 
-  if(argc > 1) {
-    radio_id = atoi(argv[1]);
-  }
-
-  fprintf(stderr, "tx-test: version %s\n", VERSION);
-
-  nrf24radio_init();
   dev = nrf24radio_get(radio_id);
-
   if(!dev) {
     fprintf(stderr, "could not open device: %s\n", nrf24radio_get_errorstr());
     exit(EXIT_FAILURE);
   }
+  
 
-  printf("Found device: %s\n", dev->model);
-  printf("Serial: %s\n", dev->serial);
-  printf("Firmware Version: %g\n", dev->firmware);
+  printf("opened device [%s] in PTX mode\n",dev->serial);
 
   uint8_t addr[5]={0x01,0x01,0x01,0x01,0x01};
   uint8_t *address=addr;
   
   if(nrf24radio_set_channel(dev, 100) ||
+     nrf24radio_set_power(dev,POWER_0DBM) ||
      nrf24radio_set_data_rate(dev, DATA_RATE_250KBPS) ||
-     nrf24radio_set_address(dev, address) ||
+//     nrf24radio_set_data_rate(dev, DATA_RATE_1MBPS) ||
+//     nrf24radio_set_data_rate(dev, DATA_RATE_2MBPS) ||
+//     nrf24radio_set_address(dev, address) ||
+       nrf24radio_set_power(dev,POWER_M18DBM) ||
+//       nrf24radio_set_power(dev,POWER_0DBM) ||
      nrf24radio_set_mode(dev, MODE_PTX)) {
     fprintf(stderr, "error setting up radio: %s\n", nrf24radio_get_errorstr());
     exit(EXIT_FAILURE);
@@ -126,29 +137,30 @@ int main(int argc, char *argv[])
 
 #define RADIO_CRTL_TEST  
 #ifdef RADIO_CRTL_TEST
-  buffer[0]=0x10; // DLE marker
-  buffer[1]='G'; 
-  bytes=2;
-  res = nrf24radio_write_packet(dev, buffer,strlen((char*)buffer) + 1, 1000);
-  if(res < 0) {
-    fprintf(stderr, "error writing: %s\n", nrf24radio_get_errorstr());
+  while(1)
+  {
+    buffer[0]='*';
+    buffer[1]='G'; 
+    bytes=2;
+    res = nrf24radio_write_packet(dev, buffer,strlen((char*)buffer) + 1, 1000);
+    if(res < 0) {
+      fprintf(stderr, "error writing: %s\n", nrf24radio_get_errorstr());
     exit(EXIT_FAILURE);
-  }
-  printf("Wrote packet: %s\n", buffer);
-
-  memset(buffer,0x00,64);
-  res = nrf24radio_read_packet(dev, buffer, 64, 0);
-  if(res < 0) {
-    fprintf(stderr, "error reading: %s\n", nrf24radio_get_errorstr());
-    exit(EXIT_FAILURE);
-  }
+    }
+    printf("Wrote packet: [%s]\n", buffer);
+    
+    memset(buffer,0x00,64);
+    res = nrf24radio_read_packet(dev, buffer, 64, 0);
+    if(res < 0) {
+      fprintf(stderr, "error reading: %s\n", nrf24radio_get_errorstr());
+      exit(EXIT_FAILURE);
+    }
 #define PRINT_PAYLOAD  
 #ifdef PRINT_PAYLOAD
   printf("Payload:  [%s]\n",buffer);
 #endif
-  
-  
-  sleep(10);
+  sleep(1);
+  } // end while(1)
 #endif
                         
                         
@@ -165,8 +177,15 @@ int main(int argc, char *argv[])
       fprintf(stderr, "error writing: %s\n", nrf24radio_get_errorstr());
       exit(EXIT_FAILURE);
     }
-    printf("Wrote packet: %s\n", buffer);
-    
+    printf("Wrote packet: [%s]\n", buffer);
+    memset(buffer,0x00,64);
+    res = nrf24radio_read_packet(dev, buffer, 64, 0);
+    if(res < 0) {
+      fprintf(stderr, "error reading: %s\n", nrf24radio_get_errorstr());
+      exit(EXIT_FAILURE);
+    }
+    printf("read [%s]\n",buffer);
+    sleep(1);
   }
   end=time(NULL);
   int diff=end-start;
